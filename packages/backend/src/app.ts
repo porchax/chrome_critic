@@ -3,6 +3,7 @@ import { sharedSecret, withCors } from './middleware';
 import { analyzeRoutes } from './routes/analyze';
 import { quotaRoutes } from './routes/quota';
 import { historyRoutes } from './routes/history';
+import { reportRoutes } from './routes/report';
 
 export type AppEnv = {
   Bindings: {
@@ -21,5 +22,6 @@ export function createApp() {
   app.route('/quota', quotaRoutes);
   app.route('/analyze', analyzeRoutes);
   app.route('/history', historyRoutes);
+  app.route('/report', reportRoutes);
   return app;
 }
