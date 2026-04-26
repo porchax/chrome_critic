@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { sharedSecret, withCors } from './middleware';
+import { analyzeRoutes } from './routes/analyze';
 import { quotaRoutes } from './routes/quota';
 
 export type AppEnv = {
@@ -17,5 +18,6 @@ export function createApp() {
   app.use('*', sharedSecret());
   app.get('/', (c) => c.json({ status: 'ok', service: 'criticus' }));
   app.route('/quota', quotaRoutes);
+  app.route('/analyze', analyzeRoutes);
   return app;
 }
