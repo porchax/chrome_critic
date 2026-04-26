@@ -1,0 +1,43 @@
+name = "criticus-api-dev"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "criticus"
+database_id = "REPLACE_WITH_LOCAL_OR_PLACEHOLDER"
+migrations_dir = "src/db/migrations"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_LOCAL_OR_PLACEHOLDER"
+
+[triggers]
+crons = ["0 7 * * 3", "0 3 * * *"]
+
+[env.staging]
+name = "criticus-api-staging"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "criticus-staging"
+database_id = "FILL_AFTER_CREATE"
+migrations_dir = "src/db/migrations"
+
+[[env.staging.kv_namespaces]]
+binding = "KV"
+id = "FILL_AFTER_CREATE"
+
+[env.production]
+name = "criticus-api"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "criticus-prod"
+database_id = "FILL_AFTER_CREATE"
+migrations_dir = "src/db/migrations"
+
+[[env.production.kv_namespaces]]
+binding = "KV"
+id = "FILL_AFTER_CREATE"
