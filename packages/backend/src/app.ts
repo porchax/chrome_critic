@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { sharedSecret, withCors } from './middleware';
+import { quotaRoutes } from './routes/quota';
 
 export type AppEnv = {
   Bindings: {
@@ -15,5 +16,6 @@ export function createApp() {
   app.use('*', withCors());
   app.use('*', sharedSecret());
   app.get('/', (c) => c.json({ status: 'ok', service: 'criticus' }));
+  app.route('/quota', quotaRoutes);
   return app;
 }
