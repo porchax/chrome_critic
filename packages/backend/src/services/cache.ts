@@ -1,8 +1,10 @@
+import { webcrypto } from 'node:crypto';
+import type { Pool } from 'pg';
 import { CACHE_TTL_DAYS, type Report } from '@criticus/shared';
 
 export async function hashContent(text: string): Promise<string> {
   const data = new TextEncoder().encode(text);
-  const buf = await crypto.subtle.digest('SHA-256', data);
+  const buf = await webcrypto.subtle.digest('SHA-256', data);
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
@@ -15,25 +17,26 @@ export type CachedReport = {
   expires_at: number;
 };
 
+type ReportRow = {
+  id: string;
+  url: string;
+  content_hash: string;
+  report_json: string;
+  created_at: number;
+  expires_at: number;
+};
+
 export async function lookupCachedReport(
-  db: D1Database,
+  pool: Pool,
   url: string,
   contentHash: string,
   now: Date,
 ): Promise<CachedReport | null> {
-  const row = await db
-    .prepare(
-      'SELECT id, url, content_hash, report_json, created_at, expires_at FROM reports WHERE url = ? AND content_hash = ? AND expires_at > ?',
-    )
-    .bind(url, contentHash, now.getTime())
-    .first<{
-      id: string;
-      url: string;
-      content_hash: string;
-      report_json: string;
-      created_at: number;
-      expires_at: number;
-    }>();
+  const res = await pool.query<ReportRow>(
+    'SELECT id, url, content_hash, report_json, created_at, expires_at FROM reports WHERE url = $1 AND content_hash = $2 AND expires_at > $3',
+    [url, contentHash, now.getTime()],
+  );
+  const row = res.rows[0];
   if (!row) return null;
   return {
     id: row.id,
@@ -46,21 +49,24 @@ export async function lookupCachedReport(
 }
 
 export async function saveReport(
-  db: D1Database,
-  args: {
-    id: string;
-    url: string;
-    content_hash: string;
-    report: Report;
-    now: Date;
-  },
+  pool: Pool,
+  args: { id: string; url: string; content_hash: string; report: Report; now: Date },
 ): Promise<void> {
   const created = args.now.getTime();
   const expires = created + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
-  await db
-    .prepare(
-      'INSERT INTO reports (id, url, content_hash, report_json, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-    )
-    .bind(args.id, args.url, args.content_hash, JSON.stringify(args.report), created, expires)
-    .run();
+  await pool.query(
+    'INSERT INTO reports (id, url, content_hash, report_json, created_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)',
+    [args.id, args.url, args.content_hash, JSON.stringify(args.report), created, expires],
+  );
+}
+
+export async function getReportById(
+  pool: Pool,
+  id: string,
+): Promise<{ report_json: string; created_at: number } | null> {
+  const res = await pool.query<{ report_json: string; created_at: number }>(
+    'SELECT report_json, created_at FROM reports WHERE id = $1 LIMIT 1',
+    [id],
+  );
+  return res.rows[0] ?? null;
 }
