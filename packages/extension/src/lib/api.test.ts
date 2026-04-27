@@ -66,14 +66,14 @@ describe('api client', () => {
       http.get(`${BASE}/history`, () =>
         HttpResponse.json({
           items: [
-            { id: 'r1', url: 'https://a', title: 'A', verdict: 'V', created_at: '2026-04-27T10:00:00Z' },
+            { report_id: 'r1', url: 'https://a', title: 'A', created_at: '2026-04-27T10:00:00Z' },
           ],
         }),
       ),
     );
     const h = await getHistory({ baseUrl: BASE, secret: 's', uuid: 'abc' });
     expect(h.items).toHaveLength(1);
-    expect(h.items[0]?.id).toBe('r1');
+    expect(h.items[0]?.report_id).toBe('r1');
   });
 
   it('GET /report/:id returns report', async () => {
