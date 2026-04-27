@@ -43,7 +43,8 @@ describe('renderState', () => {
   it('renders too-short with hint', () => {
     const root = document.createElement('div');
     renderState(root, { kind: 'too-short' });
-    expect(root.textContent).toContain('не найдено статьи');
+    expect(root.textContent).toContain('Статья не найдена');
+    expect(root.textContent).toContain('выделите текст');
   });
 
   it('renders rate-limited with retry hint', () => {

@@ -105,7 +105,7 @@ export function renderState(root: HTMLElement, state: State): void {
   switch (state.kind) {
     case 'idle':
       root.innerHTML =
-        '<div class="message"><h2>Критикус готов</h2><p>Откройте статью и нажмите иконку расширения.</p></div>';
+        '<div class="message"><h2>Критикус готов</h2><p>Откройте статью и нажмите иконку расширения.</p><p class="hint">Не подхватилось автоматически? Выделите текст и нажмите ещё раз — разберём именно выделение.</p></div>';
       return;
     case 'extracting':
       root.innerHTML =
@@ -120,7 +120,7 @@ export function renderState(root: HTMLElement, state: State): void {
       return;
     case 'too-short':
       root.innerHTML =
-        '<div class="message"><h2>Статья не найдена</h2><p>На этой странице не найдено статьи. Откройте конкретный материал и попробуйте снова.</p></div>';
+        '<div class="message"><h2>Статья не найдена</h2><p>На странице слишком много мусора, и автоматическое извлечение не сработало.</p><p class="hint">Совет: выделите текст статьи мышкой (минимум пара абзацев), а затем нажмите на иконку расширения снова — Критикус разберёт именно выделенный фрагмент.</p></div>';
       return;
     case 'quota-empty':
       root.innerHTML = renderQuotaEmpty(state.quota);

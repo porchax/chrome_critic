@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractArticle } from './content-script';
+import { extractArticle, extractFromSelection } from './content-script';
 
 describe('extractArticle', () => {
   function buildDoc(bodyHtml: string, title = 'Доктитул'): Document {
@@ -29,5 +29,40 @@ describe('extractArticle', () => {
     expect(r!.url).toBe('https://example.org/a');
     expect(r!.domain).toBe('example.org');
     expect(r!.lang).toBe('ru');
+    expect(r!.source).toBe('readability');
+  });
+});
+
+describe('extractFromSelection', () => {
+  function emptyDoc(title = 'Page Title'): Document {
+    return new DOMParser().parseFromString(
+      `<!doctype html><html><head><title>${title}</title></head><body></body></html>`,
+      'text/html',
+    );
+  }
+
+  it('returns null for short selection', () => {
+    const r = extractFromSelection('всего пара слов', emptyDoc(), 'https://x.test/a', 'ru');
+    expect(r).toBeNull();
+  });
+
+  it('uses selection text and document title', () => {
+    const long = 'Длинный выделенный фрагмент в десять раз длиннее минимального лимита. '.repeat(10);
+    const r = extractFromSelection(long, emptyDoc('Моя статья'), 'https://x.test/a', 'ru');
+    expect(r).not.toBeNull();
+    expect(r!.text.length).toBeGreaterThan(500);
+    expect(r!.title).toBe('Моя статья');
+    expect(r!.domain).toBe('x.test');
+    expect(r!.source).toBe('selection');
+  });
+
+  it('falls back to hostname title when document has none', () => {
+    const long = 'Длинный текст из выделения для прохождения порога. '.repeat(15);
+    const doc = new DOMParser().parseFromString(
+      '<!doctype html><html><head></head><body></body></html>',
+      'text/html',
+    );
+    const r = extractFromSelection(long, doc, 'https://example.org/a', 'ru');
+    expect(r!.title).toBe('example.org');
   });
 });
