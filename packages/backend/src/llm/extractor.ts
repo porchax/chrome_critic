@@ -1,6 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ExtractorOutputSchema, type ExtractorOutput } from '@criticus/shared';
 import { callOpenRouter } from '../services/openrouter';
-import promptText from './prompts/extractor.md?raw';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const promptText = readFileSync(resolve(__dirname, 'prompts/extractor.md'), 'utf8');
 
 const PRIMARY_MODEL = 'google/gemini-2.0-flash-001';
 const FALLBACK_MODEL = 'meta-llama/llama-3.1-70b-instruct';

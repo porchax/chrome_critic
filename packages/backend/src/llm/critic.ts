@@ -1,10 +1,15 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   type ExtractorOutput,
   type Report,
   ReportSchema,
 } from '@criticus/shared';
 import { callOpenRouter } from '../services/openrouter';
-import promptText from './prompts/critic.md?raw';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const promptText = readFileSync(resolve(__dirname, 'prompts/critic.md'), 'utf8');
 
 const CRITIC_MODEL = 'anthropic/claude-sonnet-4:online';
 
