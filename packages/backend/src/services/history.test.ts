@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Pool } from 'pg';
 import { newDb } from 'pg-mem';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { Pool } from 'pg';
-import { addToHistory, getHistory, ownsReport } from './history';
 import { saveReport } from './cache';
+import { addToHistory, getHistory, ownsReport } from './history';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migration = readFileSync(resolve(__dirname, '../db/migrations/0001_initial.sql'), 'utf8');

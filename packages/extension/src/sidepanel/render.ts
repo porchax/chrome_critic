@@ -108,7 +108,8 @@ export function renderState(root: HTMLElement, state: State): void {
         '<div class="message"><h2>Критикус готов</h2><p>Откройте статью и нажмите иконку расширения.</p></div>';
       return;
     case 'extracting':
-      root.innerHTML = '<div class="message"><div class="spinner"></div><p>Извлекаем статью…</p></div>';
+      root.innerHTML =
+        '<div class="message"><div class="spinner"></div><p>Извлекаем статью…</p></div>';
       return;
     case 'analyzing':
       root.innerHTML =

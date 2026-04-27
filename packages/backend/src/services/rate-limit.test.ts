@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import type { Redis } from 'ioredis';
+import { describe, expect, it } from 'vitest';
 import { checkAndSetCooldown } from './rate-limit';
 
 function makeRedis(): Redis {

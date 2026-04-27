@@ -1,10 +1,10 @@
-import { vi, afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../db/client', () => ({ pool: {} }));
 vi.mock('../services/quota');
 
-import { getOrCreateUser } from '../services/quota';
 import { createApp } from '../app';
+import { getOrCreateUser } from '../services/quota';
 
 describe('GET /quota', () => {
   beforeAll(() => {

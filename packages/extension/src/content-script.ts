@@ -9,11 +9,7 @@ export type ExtractedArticle = {
   lang: string;
 };
 
-export function extractArticle(
-  doc: Document,
-  url: string,
-  lang: string,
-): ExtractedArticle | null {
+export function extractArticle(doc: Document, url: string, lang: string): ExtractedArticle | null {
   const cloned = doc.cloneNode(true) as Document;
   const reader = new Readability(cloned);
   const parsed = reader.parse();
@@ -34,11 +30,7 @@ export function extractArticle(
 if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg?.type === 'extract-article') {
-      const result = extractArticle(
-        document,
-        location.href,
-        document.documentElement.lang || 'ru',
-      );
+      const result = extractArticle(document, location.href, document.documentElement.lang || 'ru');
       sendResponse(result);
       return true;
     }

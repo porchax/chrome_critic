@@ -4,11 +4,7 @@ import { runCritic } from './critic';
 
 const validReport = {
   verdict: 'жёсткий вердикт',
-  replies: [
-    { text: 'A' },
-    { text: 'B' },
-    { text: 'C' },
-  ],
+  replies: [{ text: 'A' }, { text: 'B' }, { text: 'C' }],
   factcheck: [
     {
       claim: 'X',

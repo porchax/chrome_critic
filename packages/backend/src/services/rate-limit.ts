@@ -1,5 +1,5 @@
-import type { Redis } from 'ioredis';
 import { RATE_LIMIT_COOLDOWN_SEC } from '@criticus/shared';
+import type { Redis } from 'ioredis';
 
 export type CooldownResult = { allowed: true } | { allowed: false; retry_after: number };
 

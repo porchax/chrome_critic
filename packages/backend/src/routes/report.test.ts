@@ -1,14 +1,14 @@
-import { vi, afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../db/client', () => ({ pool: {} }));
 vi.mock('../services/cache');
 vi.mock('../services/history');
 vi.mock('../services/quota');
 
+import { createApp } from '../app';
 import { getReportById } from '../services/cache';
 import { ownsReport } from '../services/history';
 import { getOrCreateUser } from '../services/quota';
-import { createApp } from '../app';
 
 const owner = '11111111-1111-1111-1111-111111111111';
 const stranger = '22222222-2222-2222-2222-222222222222';

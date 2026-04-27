@@ -1,11 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  type ExtractorOutput,
-  type Report,
-  ReportSchema,
-} from '@criticus/shared';
+import { type ExtractorOutput, type Report, ReportSchema } from '@criticus/shared';
 import { callOpenRouter } from '../services/openrouter';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

@@ -1,22 +1,11 @@
 import { describe, expectTypeOf, it } from 'vitest';
-import type {
-  AnalyzeRequest,
-  AnalyzeResponse,
-  HistoryItem,
-  Quota,
-  Report,
-} from './types';
+import type { AnalyzeRequest, AnalyzeResponse, HistoryItem, Quota, Report } from './types';
 
 describe('types', () => {
   it('AnalyzeResponse is a discriminated union with status', () => {
     type Status = AnalyzeResponse['status'];
     expectTypeOf<Status>().toEqualTypeOf<
-      | 'ok'
-      | 'quota-exhausted'
-      | 'too-short'
-      | 'rate-limited'
-      | 'upstream-error'
-      | 'invalid-input'
+      'ok' | 'quota-exhausted' | 'too-short' | 'rate-limited' | 'upstream-error' | 'invalid-input'
     >();
   });
 

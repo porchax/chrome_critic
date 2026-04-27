@@ -48,9 +48,9 @@ export async function getHistory(db: Db, uuid: string): Promise<HistoryItem[]> {
 }
 
 export async function ownsReport(db: Db, uuid: string, reportId: string): Promise<boolean> {
-  const res = await db.query(
-    'SELECT 1 FROM history WHERE uuid = $1 AND report_id = $2 LIMIT 1',
-    [uuid, reportId],
-  );
+  const res = await db.query('SELECT 1 FROM history WHERE uuid = $1 AND report_id = $2 LIMIT 1', [
+    uuid,
+    reportId,
+  ]);
   return res.rows.length > 0;
 }

@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { type AnalyzeResponse, MAX_TEXT_LENGTH, MIN_TEXT_LENGTH, WEEKLY_LIMIT } from '@criticus/shared';
+import {
+  type AnalyzeResponse,
+  MAX_TEXT_LENGTH,
+  MIN_TEXT_LENGTH,
+  WEEKLY_LIMIT,
+} from '@criticus/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { pool } from '../db/client';
@@ -7,7 +12,7 @@ import { redis } from '../lib/redis';
 import { runPipeline } from '../llm/pipeline';
 import { hashContent, lookupCachedReport, saveReport } from '../services/cache';
 import { addToHistory } from '../services/history';
-import { getOrCreateUser, increment, isExhausted, type UserRow } from '../services/quota';
+import { type UserRow, getOrCreateUser, increment, isExhausted } from '../services/quota';
 import { checkAndSetCooldown } from '../services/rate-limit';
 
 const BodySchema = z.object({
@@ -59,7 +64,10 @@ export const analyzeRoutes = new Hono().post('/', async (c) => {
     cool = { allowed: true };
   }
   if (!cool.allowed) {
-    return c.json({ status: 'rate-limited', retry_after: cool.retry_after } satisfies AnalyzeResponse);
+    return c.json({
+      status: 'rate-limited',
+      retry_after: cool.retry_after,
+    } satisfies AnalyzeResponse);
   }
 
   const contentHash = await hashContent(text);
@@ -77,10 +85,13 @@ export const analyzeRoutes = new Hono().post('/', async (c) => {
 
   const user = await getOrCreateUser(pool, body.uuid, now);
   if (isExhausted(user)) {
-    return c.json({ status: 'quota-exhausted', quota: quotaPayload(user) } satisfies AnalyzeResponse);
+    return c.json({
+      status: 'quota-exhausted',
+      quota: quotaPayload(user),
+    } satisfies AnalyzeResponse);
   }
 
-  let report;
+  let report: Awaited<ReturnType<typeof runPipeline>>;
   try {
     report = await runPipeline({
       apiKey: process.env.OPENROUTER_API_KEY ?? '',
@@ -102,7 +113,13 @@ export const analyzeRoutes = new Hono().post('/', async (c) => {
   let refreshed: UserRow;
   try {
     await client.query('BEGIN');
-    await saveReport(client, { id: reportId, url: body.url, content_hash: contentHash, report, now });
+    await saveReport(client, {
+      id: reportId,
+      url: body.url,
+      content_hash: contentHash,
+      report,
+      now,
+    });
     await addToHistory(client, body.uuid, reportId, now);
     refreshed = await increment(client, body.uuid);
     await client.query('COMMIT');

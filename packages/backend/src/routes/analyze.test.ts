@@ -1,4 +1,4 @@
-import { vi, afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../db/client', () => ({
   pool: {
@@ -15,12 +15,12 @@ vi.mock('../services/quota');
 vi.mock('../services/history');
 vi.mock('../llm/pipeline');
 
-import { checkAndSetCooldown } from '../services/rate-limit';
-import { hashContent, lookupCachedReport, saveReport } from '../services/cache';
-import { getOrCreateUser, increment, isExhausted } from '../services/quota';
-import { addToHistory } from '../services/history';
-import { runPipeline } from '../llm/pipeline';
 import { createApp } from '../app';
+import { runPipeline } from '../llm/pipeline';
+import { hashContent, lookupCachedReport, saveReport } from '../services/cache';
+import { addToHistory } from '../services/history';
+import { getOrCreateUser, increment, isExhausted } from '../services/quota';
+import { checkAndSetCooldown } from '../services/rate-limit';
 
 const validReport = {
   verdict: 'V',

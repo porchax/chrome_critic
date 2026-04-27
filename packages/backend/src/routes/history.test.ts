@@ -1,10 +1,10 @@
-import { vi, afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../db/client', () => ({ pool: {} }));
 vi.mock('../services/history');
 
-import { getHistory } from '../services/history';
 import { createApp } from '../app';
+import { getHistory } from '../services/history';
 
 describe('GET /history', () => {
   beforeAll(() => {

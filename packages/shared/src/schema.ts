@@ -10,12 +10,7 @@ export const ReplySchema = z.object({
   source: ReplySourceSchema.optional(),
 });
 
-export const FactCheckStatusSchema = z.enum([
-  'verified',
-  'disputed',
-  'refuted',
-  'unverifiable',
-]);
+export const FactCheckStatusSchema = z.enum(['verified', 'disputed', 'refuted', 'unverifiable']);
 
 export const FactCheckItemSchema = z.object({
   claim: z.string().min(1),

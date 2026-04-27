@@ -1,11 +1,18 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "files": {
+    "ignore": ["**/dist/**", "**/node_modules/**", "**/coverage/**", "pnpm-lock.yaml"]
+  },
   "organizeImports": { "enabled": true },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
-      "style": { "useImportType": "error" },
+      "style": {
+        "useImportType": "error",
+        "noNonNullAssertion": "off"
+      },
+      "performance": { "noDelete": "off" },
       "suspicious": { "noConsole": "off" }
     }
   },

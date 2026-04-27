@@ -2,7 +2,7 @@ import type { ExtractedArticle } from '../content-script';
 import { analyze } from '../lib/api';
 import { getOrCreateUuid } from '../lib/uuid';
 import { renderState } from './render';
-import { type Event, initialState, reducer, type State } from './state';
+import { type Event, type State, initialState, reducer } from './state';
 
 declare const __BACKEND_URL__: string;
 declare const __SHARED_SECRET__: string;
