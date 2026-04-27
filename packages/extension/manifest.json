@@ -3,7 +3,6 @@
   "name": "Критикус",
   "description": "Критический разбор статей с готовыми контр-аргументами для спора.",
   "version": "0.0.1",
-  "default_locale": "ru",
   "action": { "default_title": "Разобрать статью через Критикус" },
   "side_panel": { "default_path": "src/sidepanel/index.html" },
   "background": { "service_worker": "src/background.ts", "type": "module" },
