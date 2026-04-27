@@ -1,119 +1,180 @@
-# Критикус (Criticus)
+# 🔥 Критикус
 
-Chrome-расширение, которое критически разбирает статью с открытой вкладки и выдаёт готовые контр-аргументы для отправки апоненту в чат.
+Chrome-расширение, которое **критически разбирает любую статью** и выдаёт готовые контр-аргументы для отправки апоненту в чат.
 
-Тон отчёта — токсичный/критичный. Продукт — «боеприпас для спора», а не академический разбор.
+Тон отчёта — токсичный, жёсткий и ехидный. Это **боеприпас для спора**, а не академический разбор.
 
-## Архитектура
+[![tests](https://img.shields.io/badge/tests-80%20passing-brightgreen)]() [![manifest](https://img.shields.io/badge/manifest-v3-blue)]() [![license](https://img.shields.io/badge/license-MIT-blue)]()
 
-- `packages/shared` — типы и Zod-схемы (общие для extension и backend).
-- `packages/backend` — Node.js сервис (Hono + PostgreSQL + Redis + node-cron) для Railway.
-- `packages/extension` — Manifest V3 расширение (Vite + CRXJS).
+---
 
-LLM-пайплайн: `gemini-2.0-flash-001` (extractor) → `claude-sonnet-4:online` (critic с web search) — оба через OpenRouter.
+## Что умеет
 
-Лимит: 10 анализов в неделю на анонимный UUID. Сброс — среда 10:00 МСК (07:00 UTC).
+- 📰 Извлекает текст статьи с открытой вкладки (Readability) или из выделения
+- ⚔️ Готовит **5 готовых ответов оппоненту** — копируй и отправляй
+- ✅ Проверяет факты через web-search (Claude Sonnet 4 :online): `verified` / `disputed` / `refuted` / `unverifiable`
+- 🎭 Разбирает риторические манипуляции в исходнике
+- 🧠 Оценивает источник и автора
+- 🇷🇺 UI и анализ полностью на русском
+- 🚦 10 анализов в неделю на анонимный UUID, сброс — среда 10:00 МСК
 
-## Локальная разработка
+## 🚀 Установка для пользователей
+
+1. Откройте страницу [Releases](../../releases) этого репозитория и скачайте `criticus-extension.zip` из последнего релиза.
+2. Распакуйте архив в любую папку.
+3. В Chrome / Yandex Browser / Edge / Brave откройте страницу управления расширениями:
+   - Chrome / Brave: `chrome://extensions`
+   - Edge: `edge://extensions`
+   - Yandex Browser: меню → «Дополнения» → «Каталог расширений» → значок ⚙️ → «Режим разработчика»
+4. Включите **«Режим разработчика»** в правом верхнем углу.
+5. Нажмите **«Загрузить распакованное расширение»** и выберите распакованную папку.
+6. Готово — рядом с адресной строкой появится иконка Критикуса.
+
+### Как пользоваться
+
+- Открыли статью → ждёте полной загрузки → нажимаете на иконку расширения. Откроется окно с разбором.
+- Если статья не извлеклась автоматически (на странице много мусора) — выделите текст статьи мышкой (минимум пару абзацев) и нажмите иконку ещё раз. Критикус разберёт именно выделение.
+- Старые вкладки, открытые до установки расширения, нужно один раз обновить (`F5`), чтобы туда подъехал content-script.
+
+---
+
+## 🛠 Сборка из исходников
 
 ### Требования
 
-- Node.js 20+, pnpm 9
-- PostgreSQL 14+
-- Redis 6+
+- Node.js 20+
+- pnpm 9 (`corepack enable`)
 
-### Установка
+### Сборка только расширения
 
 ```bash
+git clone https://github.com/porchax/chrome_critic.git
+cd chrome_critic
 pnpm install
+
+# Опционально — указать свой backend и shared secret
+export BACKEND_URL=https://criticus-backend-production.up.railway.app
+export EXTENSION_SHARED_SECRET=4en7wEE1DnvKxIMrf5qAE7SjIhO5GpTe
+
+pnpm --filter @criticus/extension build
 ```
 
-### Бэкенд (локально)
+Готовая сборка будет в `packages/extension/dist`. Её и грузите как unpacked.
+
+### Полный dev-цикл
 
 ```bash
-cd packages/backend
+pnpm install              # установка зависимостей
+pnpm -r typecheck         # tsc по всем пакетам
+pnpm -r test              # 80 тестов (vitest + pg-mem + msw + jsdom)
+pnpm lint                 # biome check
+pnpm -r build             # собрать всё
+```
 
-# Создай .env (или экспортируй переменные перед запуском)
+---
+
+## 🏗 Архитектура
+
+```
+┌────────────────────┐      x-critic-token      ┌──────────────────┐
+│  Chrome Extension  │ ───────────────────────► │  Backend (Hono)  │
+│  Manifest V3       │     POST /analyze        │   на Railway     │
+│  Vite + CRXJS      │ ◄─────────────────────── │                  │
+└────────────────────┘     {report, quota}      └────────┬─────────┘
+        │                                                │
+        │  Readability                                   │
+        │  + selection                                   ▼
+        ▼                                       ┌──────────────────┐
+   article text                                 │  PostgreSQL      │
+                                                │  (users, quotas, │
+                                                │   reports,       │
+                                                │   history)       │
+                                                ├──────────────────┤
+                                                │  Redis           │
+                                                │  (cache 7d,      │
+                                                │   rate-limit)    │
+                                                ├──────────────────┤
+                                                │  OpenRouter      │
+                                                │  Gemini Flash    │
+                                                │  + Claude Sonnet │
+                                                │   4 :online      │
+                                                └──────────────────┘
+```
+
+- `packages/shared` — типы и Zod-схемы
+- `packages/backend` — Node.js + Hono + PostgreSQL + Redis + node-cron
+- `packages/extension` — Manifest V3 + Vite + CRXJS + Mozilla Readability
+
+LLM-пайплайн двухэтапный:
+1. **Extractor** (`gemini-2.0-flash-001`) выжимает голые тезисы и автора
+2. **Critic** (`claude-sonnet-4:online`) пишет ехидный разбор + ищет источники через web search
+
+Кэш: ключ `(URL, sha256(text))`, TTL 7 дней. Cache-hit **не списывает квоту**.
+
+---
+
+## ☁️ Деплой backend на Railway
+
+```bash
+# Создать проект
+railway init -n criticus
+
+# Добавить плагины (по одному)
+railway add --json -d postgres
+railway add --json -d redis
+
+# Создать сервис из репо
+railway add --json -s criticus-backend
+
+# Прописать переменные окружения
+railway variables --service criticus-backend \
+  --set 'OPENROUTER_API_KEY=sk-or-...' \
+  --set 'EXTENSION_SHARED_SECRET=...' \
+  --set 'NODE_ENV=production' \
+  --set 'DATABASE_URL=${{Postgres.DATABASE_URL}}' \
+  --set 'REDIS_URL=${{Redis.REDIS_URL}}'
+
+# Деплой
+railway up --detach
+railway domain   # получить публичный URL
+```
+
+`railway.json` в корне настраивает Nixpacks build/start с фильтром `pnpm --filter @criticus/backend`. Миграции прогоняются автоматически при старте через `runMigrations(pool)`.
+
+### Локальный backend
+
+```bash
+docker compose up -d              # Postgres + Redis
+cd packages/backend
 cat > .env <<'EOF'
-DATABASE_URL=postgres://localhost:5432/criticus
+DATABASE_URL=postgres://criticus:criticus@localhost:5432/criticus
 REDIS_URL=redis://localhost:6379
 OPENROUTER_API_KEY=sk-or-...
 EXTENSION_SHARED_SECRET=local-dev-secret
 PORT=3000
 EOF
-
-# Создай БД и прогоняй миграции (миграции также прогоняются автоматически при старте сервера)
-createdb criticus
 pnpm migrate
-
 pnpm dev
 ```
 
-API будет доступен на `http://localhost:3000`.
+API на `http://localhost:3000`. Smoke-тест: `bash scripts/smoke.sh`.
 
-### Расширение (локально)
+---
 
-```bash
-cd packages/extension
-cp .env.example .env  # BACKEND_URL=http://localhost:3000
+## 📋 API контракт
 
-pnpm build
-```
+| Метод | Путь | Назначение |
+|-------|------|------------|
+| `GET` | `/` | Healthcheck (без авторизации) |
+| `GET` | `/quota?uuid=…` | Текущая квота |
+| `POST` | `/analyze` | Запустить разбор статьи |
+| `GET` | `/history?uuid=…` | 10 последних разборов |
+| `GET` | `/report/:id?uuid=…` | Полный отчёт по id |
 
-Открой Chrome → `chrome://extensions` → включи Developer mode → «Load unpacked» → выбери `packages/extension/dist`.
+Все авторизованные эндпоинты требуют заголовок `X-Critic-Token: <EXTENSION_SHARED_SECRET>`.
 
-Кликни по иконке расширения на любой статье — откроется side panel с разбором.
+---
 
-### Тесты
+## 📄 Лицензия
 
-```bash
-pnpm -r test                                # все пакеты (~80 тестов)
-pnpm --filter @criticus/backend test        # только backend (pg-mem)
-pnpm --filter @criticus/extension test      # только extension (jsdom + msw)
-```
-
-### Линт и форматирование
-
-```bash
-pnpm lint     # biome check
-pnpm format   # biome format --write
-```
-
-### Полный CI-локально
-
-```bash
-pnpm install --frozen-lockfile
-pnpm lint
-pnpm -r typecheck
-pnpm -r test
-pnpm -r build
-```
-
-## Деплой на Railway
-
-Backend целиком встаёт в один Railway-проект с тремя сервисами: Postgres, Redis, Node.
-
-1. Создать Railway проект и добавить плагины: PostgreSQL и Redis. Railway проставит `DATABASE_URL` и `REDIS_URL` автоматически.
-2. Добавить сервис Node из репозитория, указать `packages/backend` как root (или использовать nixpacks с monorepo-поддержкой).
-3. Прописать переменные окружения в Variables:
-   - `OPENROUTER_API_KEY` — твой OpenRouter ключ
-   - `EXTENSION_SHARED_SECRET` — общий секрет (тот же, что в `.env` расширения)
-   - `NODE_ENV=production`
-4. Build/start commands:
-   - Build: `pnpm install --frozen-lockfile && pnpm --filter @criticus/backend build`
-   - Start: `pnpm --filter @criticus/backend start`
-5. Миграции прогоняются автоматически при старте через `runMigrations(pool)` в `src/index.ts`.
-6. Скопировать публичный URL Railway-сервиса в `BACKEND_URL` расширения и пересобрать его.
-
-### Cron-задачи
-
-`node-cron` работает внутри основного процесса:
-- `0 7 * * 3` (UTC) — сброс просроченных квот (среда 10:00 МСК)
-- `0 3 * * *` (UTC) — очистка истёкшего кэша
-
-Если будешь масштабировать backend на несколько инстансов, выноси cron в отдельный воркер или используй distributed lock.
-
-## Документация
-
-- Дизайн (актуальный, Railway): `docs/superpowers/specs/2026-04-27-railway-migration-design.md`
-- План реализации: `docs/superpowers/plans/2026-04-26-criticus-implementation.md` и `docs/superpowers/plans/2026-04-27-railway-migration.md`
+MIT — см. [LICENSE](LICENSE).
