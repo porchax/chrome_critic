@@ -1,3 +1,4 @@
+import { WEEKLY_LIMIT } from '@criticus/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { pool } from '../db/client';
@@ -12,7 +13,7 @@ export const quotaRoutes = new Hono().get('/', async (c) => {
   const user = await getOrCreateUser(pool, parsed.data, new Date());
   return c.json({
     used: user.quota_used,
-    total: 10 as const,
+    total: WEEKLY_LIMIT,
     reset_at: new Date(user.quota_reset_at).toISOString(),
   });
 });

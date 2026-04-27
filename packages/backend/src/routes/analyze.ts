@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type AnalyzeResponse, MAX_TEXT_LENGTH, MIN_TEXT_LENGTH } from '@criticus/shared';
+import { type AnalyzeResponse, MAX_TEXT_LENGTH, MIN_TEXT_LENGTH, WEEKLY_LIMIT } from '@criticus/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { pool } from '../db/client';
@@ -22,7 +22,7 @@ const BodySchema = z.object({
 function quotaPayload(user: { quota_used: number; quota_reset_at: number }) {
   return {
     used: user.quota_used,
-    total: 10 as const,
+    total: WEEKLY_LIMIT,
     reset_at: new Date(user.quota_reset_at).toISOString(),
   };
 }

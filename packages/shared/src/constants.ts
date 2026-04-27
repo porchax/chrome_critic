@@ -1,4 +1,4 @@
-export const WEEKLY_LIMIT = 10;
+export const WEEKLY_LIMIT = 10 as const;
 export const CACHE_TTL_DAYS = 7;
 export const MIN_TEXT_LENGTH = 500;
 export const MAX_TEXT_LENGTH = 30000;
