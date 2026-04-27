@@ -1,9 +1,17 @@
+import { resolve } from 'node:path';
 import { crx } from '@crxjs/vite-plugin';
 import { defineConfig } from 'vite';
 import manifest from './manifest.json' with { type: 'json' };
 
 export default defineConfig({
   plugins: [crx({ manifest })],
+  build: {
+    rollupOptions: {
+      input: {
+        sidepanel: resolve(__dirname, 'src/sidepanel/index.html'),
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
