@@ -1,11 +1,9 @@
-import {
-  type AnalyzeResponse,
-  MAX_TEXT_LENGTH,
-  MIN_TEXT_LENGTH,
-} from '@criticus/shared';
+import { randomUUID } from 'node:crypto';
+import { type AnalyzeResponse, MAX_TEXT_LENGTH, MIN_TEXT_LENGTH } from '@criticus/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import type { AppEnv } from '../app';
+import { pool } from '../db/client';
+import { redis } from '../lib/redis';
 import { runPipeline } from '../llm/pipeline';
 import { hashContent, lookupCachedReport, saveReport } from '../services/cache';
 import { addToHistory } from '../services/history';
@@ -29,7 +27,7 @@ function quotaPayload(user: { quota_used: number; quota_reset_at: number }) {
   };
 }
 
-export const analyzeRoutes = new Hono<AppEnv>().post('/', async (c) => {
+export const analyzeRoutes = new Hono().post('/', async (c) => {
   const json = await c.req.json().catch(() => null);
   const parsed = BodySchema.safeParse(json);
   if (!parsed.success) {
@@ -41,51 +39,44 @@ export const analyzeRoutes = new Hono<AppEnv>().post('/', async (c) => {
   }
   const body = parsed.data;
 
-  // Truncate before length check (max-length policy is "truncate, don't reject")
   let truncated = false;
   let text = body.text;
   if (text.length > MAX_TEXT_LENGTH) {
     text = text.slice(0, MAX_TEXT_LENGTH);
     truncated = true;
   }
-
   if (text.length < MIN_TEXT_LENGTH) {
-    const resp: AnalyzeResponse = { status: 'too-short', text_length: text.length };
-    return c.json(resp);
+    return c.json({ status: 'too-short', text_length: text.length } satisfies AnalyzeResponse);
   }
 
   const now = new Date();
-
-  const cool = await checkAndSetCooldown(c.env.KV, body.uuid, now.getTime());
+  const cool = await checkAndSetCooldown(redis, body.uuid, now.getTime());
   if (!cool.allowed) {
-    const resp: AnalyzeResponse = { status: 'rate-limited', retry_after: cool.retry_after };
-    return c.json(resp);
+    return c.json({ status: 'rate-limited', retry_after: cool.retry_after } satisfies AnalyzeResponse);
   }
 
   const contentHash = await hashContent(text);
-  const cached = await lookupCachedReport(c.env.DB, body.url, contentHash, now);
+  const cached = await lookupCachedReport(pool, body.url, contentHash, now);
   if (cached) {
-    const user = await getOrCreateUser(c.env.DB, body.uuid, now);
-    await addToHistory(c.env.DB, body.uuid, cached.id, now);
-    const resp: AnalyzeResponse = {
+    const user = await getOrCreateUser(pool, body.uuid, now);
+    await addToHistory(pool, body.uuid, cached.id, now);
+    return c.json({
       status: 'ok',
       report: cached.report,
       quota: quotaPayload(user),
       cached: true,
-    };
-    return c.json(resp);
+    } satisfies AnalyzeResponse);
   }
 
-  const user = await getOrCreateUser(c.env.DB, body.uuid, now);
+  const user = await getOrCreateUser(pool, body.uuid, now);
   if (isExhausted(user)) {
-    const resp: AnalyzeResponse = { status: 'quota-exhausted', quota: quotaPayload(user) };
-    return c.json(resp);
+    return c.json({ status: 'quota-exhausted', quota: quotaPayload(user) } satisfies AnalyzeResponse);
   }
 
   let report;
   try {
     report = await runPipeline({
-      apiKey: c.env.OPENROUTER_API_KEY,
+      apiKey: process.env.OPENROUTER_API_KEY ?? '',
       url: body.url,
       domain: body.domain,
       title: body.title,
@@ -93,28 +84,20 @@ export const analyzeRoutes = new Hono<AppEnv>().post('/', async (c) => {
     });
   } catch (err) {
     console.log(JSON.stringify({ event: 'pipeline_error', err: String(err) }));
-    const resp: AnalyzeResponse = { status: 'upstream-error', kind: 'openrouter' };
-    return c.json(resp);
+    return c.json({ status: 'upstream-error', kind: 'openrouter' } satisfies AnalyzeResponse);
   }
   if (truncated) report.truncated = true;
 
-  const reportId = crypto.randomUUID();
-  await saveReport(c.env.DB, {
-    id: reportId,
-    url: body.url,
-    content_hash: contentHash,
-    report,
-    now,
-  });
-  await addToHistory(c.env.DB, body.uuid, reportId, now);
-  await increment(c.env.DB, body.uuid);
+  const reportId = randomUUID();
+  await saveReport(pool, { id: reportId, url: body.url, content_hash: contentHash, report, now });
+  await addToHistory(pool, body.uuid, reportId, now);
+  await increment(pool, body.uuid);
 
-  const refreshed = await getOrCreateUser(c.env.DB, body.uuid, now);
-  const resp: AnalyzeResponse = {
+  const refreshed = await getOrCreateUser(pool, body.uuid, now);
+  return c.json({
     status: 'ok',
     report,
     quota: quotaPayload(refreshed),
     cached: false,
-  };
-  return c.json(resp);
+  } satisfies AnalyzeResponse);
 });
