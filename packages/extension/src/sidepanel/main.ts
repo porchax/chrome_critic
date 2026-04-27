@@ -69,6 +69,11 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
+const tabIdFromUrl = Number(new URLSearchParams(window.location.search).get('tabId'));
+if (Number.isFinite(tabIdFromUrl) && tabIdFromUrl > 0) {
+  void runAnalyze(tabIdFromUrl);
+}
+
 root.addEventListener('click', (e) => {
   const target = e.target as HTMLElement;
   const copyText = target.dataset.copy;
