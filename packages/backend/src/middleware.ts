@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { createMiddleware } from 'hono/factory';
 
 export function withCors() {
@@ -22,7 +23,12 @@ export function sharedSecret() {
   return createMiddleware(async (c, next) => {
     const expected = process.env.EXTENSION_SHARED_SECRET;
     const got = c.req.header('X-Critic-Token');
-    if (!expected || got !== expected) return c.json({ error: 'unauthorized' }, 401);
+    if (!expected || !got || got.length !== expected.length) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    const a = Buffer.from(got);
+    const b = Buffer.from(expected);
+    if (!timingSafeEqual(a, b)) return c.json({ error: 'unauthorized' }, 401);
     await next();
   });
 }
