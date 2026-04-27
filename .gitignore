@@ -21,6 +21,9 @@ build/
 # Brainstorming companion (local mockups, not for repo)
 .superpowers/
 
+# Claude Code session state
+.claude/
+
 # Editor / OS
 .DS_Store
 .idea/
