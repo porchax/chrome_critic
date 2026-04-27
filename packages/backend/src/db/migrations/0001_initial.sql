@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS history (
   report_id TEXT NOT NULL,
   created_at BIGINT NOT NULL,
   PRIMARY KEY (uuid, report_id),
-  FOREIGN KEY (report_id) REFERENCES reports(id)
+  FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_history_uuid_created ON history (uuid, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_history_report_id ON history (report_id);
