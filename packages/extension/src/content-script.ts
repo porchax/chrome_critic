@@ -43,19 +43,30 @@ export function extractArticle(doc: Document, url: string, lang: string): Extrac
   };
 }
 
-if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (msg?.type === 'extract-article') {
-      const lang = document.documentElement.lang || 'ru';
-      const url = location.href;
-      const selectionText = window.getSelection()?.toString() ?? '';
-      const fromSelection = selectionText
-        ? extractFromSelection(selectionText, document, url, lang)
-        : null;
-      const result = fromSelection ?? extractArticle(document, url, lang);
-      sendResponse(result);
-      return true;
+if (typeof document !== 'undefined') {
+  let lastSelection = '';
+  document.addEventListener('selectionchange', () => {
+    const text = window.getSelection()?.toString() ?? '';
+    if (text.length >= MIN_TEXT_LENGTH) {
+      lastSelection = text;
     }
-    return undefined;
   });
+
+  if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
+    chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+      if (msg?.type === 'extract-article') {
+        const lang = document.documentElement.lang || 'ru';
+        const url = location.href;
+        const liveSelection = window.getSelection()?.toString() ?? '';
+        const candidate = liveSelection.length >= MIN_TEXT_LENGTH ? liveSelection : lastSelection;
+        const fromSelection = candidate
+          ? extractFromSelection(candidate, document, url, lang)
+          : null;
+        const result = fromSelection ?? extractArticle(document, url, lang);
+        sendResponse(result);
+        return true;
+      }
+      return undefined;
+    });
+  }
 }
