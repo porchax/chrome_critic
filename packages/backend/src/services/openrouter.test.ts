@@ -1,22 +1,26 @@
-import { describe, expect, it } from 'vitest';
-import { fetchMock } from 'cloudflare:test';
+import { beforeAll, afterEach, afterAll, describe, expect, it } from 'vitest';
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
 import { callOpenRouter } from './openrouter';
+
+const server = setupServer();
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
 
 describe('openrouter client', () => {
   it('sends bearer token and posts to /chat/completions', async () => {
-    fetchMock.activate();
-    fetchMock.disableNetConnect();
-    // TS CFA narrows `null` literal to never without an explicit non-null cast
-    const capturedRef = { value: null as { headers: Headers; body: string } | null };
-    fetchMock
-      .get('https://openrouter.ai')
-      .intercept({ path: '/api/v1/chat/completions', method: 'POST' })
-      .reply(200, async (req: any) => {
-        capturedRef.value = { headers: new Headers(req.headers), body: req.body };
-        return {
+    let capturedAuth: string | null = null;
+
+    server.use(
+      http.post('https://openrouter.ai/api/v1/chat/completions', ({ request }) => {
+        capturedAuth = request.headers.get('authorization');
+        return HttpResponse.json({
           choices: [{ message: { content: '{"answer":"42"}' } }],
-        };
-      });
+        });
+      }),
+    );
 
     const result = await callOpenRouter({
       apiKey: 'sk-or-test',
@@ -27,24 +31,18 @@ describe('openrouter client', () => {
     });
 
     expect(result.content).toBe('{"answer":"42"}');
-    expect(capturedRef.value?.headers.get('authorization')).toBe('Bearer sk-or-test');
+    expect(capturedAuth).toBe('Bearer sk-or-test');
   });
 
   it('throws on non-2xx', async () => {
-    fetchMock.activate();
-    fetchMock.disableNetConnect();
-    fetchMock
-      .get('https://openrouter.ai')
-      .intercept({ path: '/api/v1/chat/completions', method: 'POST' })
-      .reply(500, 'internal');
+    server.use(
+      http.post('https://openrouter.ai/api/v1/chat/completions', () =>
+        HttpResponse.text('internal', { status: 500 }),
+      ),
+    );
 
     await expect(
-      callOpenRouter({
-        apiKey: 'k',
-        model: 'm',
-        systemPrompt: 's',
-        userPrompt: 'u',
-      }),
+      callOpenRouter({ apiKey: 'k', model: 'm', systemPrompt: 's', userPrompt: 'u' }),
     ).rejects.toThrow();
   });
 });
