@@ -1,18 +1,17 @@
-import { env } from 'cloudflare:test';
-import { beforeEach, describe, expect, it } from 'vitest';
-import migration from '../db/migrations/0001_initial.sql?raw';
-import { createApp } from '../app';
-import { saveReport } from '../services/cache';
-import { addToHistory } from '../services/history';
+import { vi, afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+vi.mock('../db/client', () => ({ pool: {} }));
+vi.mock('../services/cache');
+vi.mock('../services/history');
+vi.mock('../services/quota');
+
+import { getReportById } from '../services/cache';
+import { ownsReport } from '../services/history';
 import { getOrCreateUser } from '../services/quota';
+import { createApp } from '../app';
 
-beforeEach(async () => {
-  await env.DB.exec(migration.replace(/\n/g, ' '));
-  await env.DB.exec('DELETE FROM users');
-  await env.DB.exec('DELETE FROM history');
-  await env.DB.exec('DELETE FROM reports');
-});
-
+const owner = '11111111-1111-1111-1111-111111111111';
+const stranger = '22222222-2222-2222-2222-222222222222';
 const stub = {
   verdict: 'V',
   replies: [{ text: 'r' }],
@@ -22,25 +21,32 @@ const stub = {
 };
 
 describe('GET /report/:id', () => {
-  const owner = '11111111-1111-1111-1111-111111111111';
-  const stranger = '22222222-2222-2222-2222-222222222222';
+  beforeAll(() => {
+    process.env.EXTENSION_SHARED_SECRET = 's';
+  });
+  afterAll(() => {
+    delete process.env.EXTENSION_SHARED_SECRET;
+  });
+
+  beforeEach(() => {
+    vi.mocked(getOrCreateUser).mockResolvedValue({
+      uuid: owner,
+      quota_used: 0,
+      quota_reset_at: Date.now() + 86_400_000,
+      created_at: 1,
+    });
+    vi.mocked(getReportById).mockResolvedValue({
+      report_json: JSON.stringify(stub),
+      created_at: 1000,
+    });
+  });
 
   it('returns report for owner', async () => {
-    await getOrCreateUser(env.DB, owner, new Date());
-    await saveReport(env.DB, {
-      id: 'r-A',
-      url: 'https://x',
-      content_hash: 'h',
-      report: stub,
-      now: new Date(1000),
-    });
-    await addToHistory(env.DB, owner, 'r-A', new Date(1000));
-    const app = createApp();
-    const res = await app.fetch(
+    vi.mocked(ownsReport).mockResolvedValue(true);
+    const res = await createApp().fetch(
       new Request(`http://x/report/r-A?uuid=${owner}`, {
         headers: { 'X-Critic-Token': 's' },
       }),
-      { ...env, EXTENSION_SHARED_SECRET: 's' },
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { report: { verdict: string } };
@@ -48,20 +54,11 @@ describe('GET /report/:id', () => {
   });
 
   it('404 for non-owner', async () => {
-    await saveReport(env.DB, {
-      id: 'r-B',
-      url: 'https://x',
-      content_hash: 'h',
-      report: stub,
-      now: new Date(1000),
-    });
-    await addToHistory(env.DB, owner, 'r-B', new Date(1000));
-    const app = createApp();
-    const res = await app.fetch(
+    vi.mocked(ownsReport).mockResolvedValue(false);
+    const res = await createApp().fetch(
       new Request(`http://x/report/r-B?uuid=${stranger}`, {
         headers: { 'X-Critic-Token': 's' },
       }),
-      { ...env, EXTENSION_SHARED_SECRET: 's' },
     );
     expect(res.status).toBe(404);
   });

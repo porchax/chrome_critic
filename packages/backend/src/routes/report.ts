@@ -1,28 +1,25 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import type { AppEnv } from '../app';
+import { pool } from '../db/client';
+import { getReportById } from '../services/cache';
 import { ownsReport } from '../services/history';
 import { getOrCreateUser } from '../services/quota';
 
 const UuidSchema = z.string().uuid();
 
-export const reportRoutes = new Hono<AppEnv>().get('/:id', async (c) => {
+export const reportRoutes = new Hono().get('/:id', async (c) => {
   const uuid = c.req.query('uuid');
   const parsed = UuidSchema.safeParse(uuid);
   if (!parsed.success) return c.json({ error: 'invalid uuid' }, 400);
 
   const reportId = c.req.param('id');
-  const owns = await ownsReport(c.env.DB, parsed.data, reportId);
+  const owns = await ownsReport(pool, parsed.data, reportId);
   if (!owns) return c.json({ error: 'not found' }, 404);
 
-  const row = await c.env.DB.prepare(
-    'SELECT report_json, created_at FROM reports WHERE id = ? LIMIT 1',
-  )
-    .bind(reportId)
-    .first<{ report_json: string; created_at: number }>();
+  const row = await getReportById(pool, reportId);
   if (!row) return c.json({ error: 'not found' }, 404);
 
-  const user = await getOrCreateUser(c.env.DB, parsed.data, new Date());
+  const user = await getOrCreateUser(pool, parsed.data, new Date());
   return c.json({
     report: JSON.parse(row.report_json),
     quota: {

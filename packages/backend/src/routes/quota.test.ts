@@ -1,21 +1,33 @@
-import { env } from 'cloudflare:test';
-import { beforeEach, describe, expect, it } from 'vitest';
-import migration from '../db/migrations/0001_initial.sql?raw';
+import { vi, afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+vi.mock('../db/client', () => ({ pool: {} }));
+vi.mock('../services/quota');
+
+import { getOrCreateUser } from '../services/quota';
 import { createApp } from '../app';
 
-beforeEach(async () => {
-  await env.DB.exec(migration.replace(/\n/g, ' '));
-  await env.DB.exec('DELETE FROM users');
-});
-
 describe('GET /quota', () => {
+  beforeAll(() => {
+    process.env.EXTENSION_SHARED_SECRET = 's';
+  });
+  afterAll(() => {
+    delete process.env.EXTENSION_SHARED_SECRET;
+  });
+
+  beforeEach(() => {
+    vi.mocked(getOrCreateUser).mockResolvedValue({
+      uuid: '11111111-1111-1111-1111-111111111111',
+      quota_used: 0,
+      quota_reset_at: Date.now() + 86_400_000,
+      created_at: Date.now(),
+    });
+  });
+
   it('returns fresh quota for new uuid', async () => {
-    const app = createApp();
-    const res = await app.fetch(
+    const res = await createApp().fetch(
       new Request('http://x/quota?uuid=11111111-1111-1111-1111-111111111111', {
         headers: { 'X-Critic-Token': 's' },
       }),
-      { ...env, EXTENSION_SHARED_SECRET: 's' },
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { used: number; total: number };
@@ -24,10 +36,8 @@ describe('GET /quota', () => {
   });
 
   it('400 on missing uuid', async () => {
-    const app = createApp();
-    const res = await app.fetch(
+    const res = await createApp().fetch(
       new Request('http://x/quota', { headers: { 'X-Critic-Token': 's' } }),
-      { ...env, EXTENSION_SHARED_SECRET: 's' },
     );
     expect(res.status).toBe(400);
   });
