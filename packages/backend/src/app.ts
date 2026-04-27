@@ -8,8 +8,8 @@ import { reportRoutes } from './routes/report';
 export function createApp() {
   const app = new Hono();
   app.use('*', withCors());
-  app.use('*', sharedSecret());
   app.get('/', (c) => c.json({ status: 'ok', service: 'criticus' }));
+  app.use('*', sharedSecret());
   app.route('/quota', quotaRoutes);
   app.route('/analyze', analyzeRoutes);
   app.route('/history', historyRoutes);
