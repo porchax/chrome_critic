@@ -1,4 +1,6 @@
-import { Pool, types } from 'pg';
+import { Pool, type PoolClient, types } from 'pg';
+
+export type Db = Pool | PoolClient;
 
 // pg returns BIGINT (OID 20) as string by default to avoid JS int53 truncation;
 // our BIGINTs are ms timestamps (well under 2^53), so parse to Number for natural arithmetic.

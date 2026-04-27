@@ -1,6 +1,6 @@
 import { webcrypto } from 'node:crypto';
-import type { Pool } from 'pg';
 import { CACHE_TTL_DAYS, type Report } from '@criticus/shared';
+import type { Db } from '../db/client';
 
 export async function hashContent(text: string): Promise<string> {
   const data = new TextEncoder().encode(text);
@@ -27,12 +27,12 @@ type ReportRow = {
 };
 
 export async function lookupCachedReport(
-  pool: Pool,
+  db: Db,
   url: string,
   contentHash: string,
   now: Date,
 ): Promise<CachedReport | null> {
-  const res = await pool.query<ReportRow>(
+  const res = await db.query<ReportRow>(
     'SELECT id, url, content_hash, report_json, created_at, expires_at FROM reports WHERE url = $1 AND content_hash = $2 AND expires_at > $3',
     [url, contentHash, now.getTime()],
   );
@@ -49,22 +49,22 @@ export async function lookupCachedReport(
 }
 
 export async function saveReport(
-  pool: Pool,
+  db: Db,
   args: { id: string; url: string; content_hash: string; report: Report; now: Date },
 ): Promise<void> {
   const created = args.now.getTime();
   const expires = created + CACHE_TTL_DAYS * 24 * 60 * 60 * 1000;
-  await pool.query(
+  await db.query(
     'INSERT INTO reports (id, url, content_hash, report_json, created_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)',
     [args.id, args.url, args.content_hash, JSON.stringify(args.report), created, expires],
   );
 }
 
 export async function getReportById(
-  pool: Pool,
+  db: Db,
   id: string,
 ): Promise<{ report_json: string; created_at: number } | null> {
-  const res = await pool.query<{ report_json: string; created_at: number }>(
+  const res = await db.query<{ report_json: string; created_at: number }>(
     'SELECT report_json, created_at FROM reports WHERE id = $1 LIMIT 1',
     [id],
   );

@@ -7,7 +7,7 @@ import { redis } from '../lib/redis';
 import { runPipeline } from '../llm/pipeline';
 import { hashContent, lookupCachedReport, saveReport } from '../services/cache';
 import { addToHistory } from '../services/history';
-import { getOrCreateUser, increment, isExhausted } from '../services/quota';
+import { getOrCreateUser, increment, isExhausted, type UserRow } from '../services/quota';
 import { checkAndSetCooldown } from '../services/rate-limit';
 
 const BodySchema = z.object({
@@ -50,7 +50,14 @@ export const analyzeRoutes = new Hono().post('/', async (c) => {
   }
 
   const now = new Date();
-  const cool = await checkAndSetCooldown(redis, body.uuid, now.getTime());
+  // Fail-open: if Redis is unreachable we still serve, just lose the cooldown for this request.
+  let cool: Awaited<ReturnType<typeof checkAndSetCooldown>>;
+  try {
+    cool = await checkAndSetCooldown(redis, body.uuid, now.getTime());
+  } catch (err) {
+    console.error(JSON.stringify({ event: 'rate_limit_unavailable', err: String(err) }));
+    cool = { allowed: true };
+  }
   if (!cool.allowed) {
     return c.json({ status: 'rate-limited', retry_after: cool.retry_after } satisfies AnalyzeResponse);
   }
@@ -83,17 +90,30 @@ export const analyzeRoutes = new Hono().post('/', async (c) => {
       text,
     });
   } catch (err) {
-    console.log(JSON.stringify({ event: 'pipeline_error', err: String(err) }));
+    console.error(JSON.stringify({ event: 'pipeline_error', err: String(err) }));
     return c.json({ status: 'upstream-error', kind: 'openrouter' } satisfies AnalyzeResponse);
   }
   if (truncated) report.truncated = true;
 
   const reportId = randomUUID();
-  await saveReport(pool, { id: reportId, url: body.url, content_hash: contentHash, report, now });
-  await addToHistory(pool, body.uuid, reportId, now);
-  await increment(pool, body.uuid);
+  // Atomic write of the three records: a partial state would leave the user without a quota
+  // charge for a saved report (free re-analysis on next request via cache hit).
+  const client = await pool.connect();
+  let refreshed: UserRow;
+  try {
+    await client.query('BEGIN');
+    await saveReport(client, { id: reportId, url: body.url, content_hash: contentHash, report, now });
+    await addToHistory(client, body.uuid, reportId, now);
+    refreshed = await increment(client, body.uuid);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    console.error(JSON.stringify({ event: 'analyze_persist_error', err: String(err) }));
+    return c.json({ status: 'upstream-error', kind: 'openrouter' } satisfies AnalyzeResponse);
+  } finally {
+    client.release();
+  }
 
-  const refreshed = await getOrCreateUser(pool, body.uuid, now);
   return c.json({
     status: 'ok',
     report,

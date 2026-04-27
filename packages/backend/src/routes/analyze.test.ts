@@ -1,6 +1,13 @@
 import { vi, afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-vi.mock('../db/client', () => ({ pool: {} }));
+vi.mock('../db/client', () => ({
+  pool: {
+    connect: vi.fn().mockResolvedValue({
+      query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
+      release: vi.fn(),
+    }),
+  },
+}));
 vi.mock('../lib/redis', () => ({ redis: {} }));
 vi.mock('../services/rate-limit');
 vi.mock('../services/cache');
@@ -64,7 +71,12 @@ describe('POST /analyze', () => {
     vi.mocked(isExhausted).mockReturnValue(false);
     vi.mocked(saveReport).mockResolvedValue(undefined);
     vi.mocked(addToHistory).mockResolvedValue(undefined);
-    vi.mocked(increment).mockResolvedValue(undefined);
+    vi.mocked(increment).mockResolvedValue({
+      uuid: validBody.uuid,
+      quota_used: 1,
+      quota_reset_at: Date.now() + 86_400_000,
+      created_at: 1,
+    });
     vi.mocked(runPipeline).mockResolvedValue(validReport);
   });
 

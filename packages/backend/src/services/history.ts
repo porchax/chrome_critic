@@ -1,18 +1,18 @@
-import type { Pool } from 'pg';
 import { HISTORY_LIMIT, type HistoryItem } from '@criticus/shared';
+import type { Db } from '../db/client';
 
 export async function addToHistory(
-  pool: Pool,
+  db: Db,
   uuid: string,
   reportId: string,
   now: Date,
 ): Promise<void> {
-  await pool.query(
+  await db.query(
     `INSERT INTO history (uuid, report_id, created_at) VALUES ($1, $2, $3)
      ON CONFLICT (uuid, report_id) DO UPDATE SET created_at = excluded.created_at`,
     [uuid, reportId, now.getTime()],
   );
-  await pool.query(
+  await db.query(
     `DELETE FROM history
      WHERE uuid = $1
        AND report_id NOT IN (
@@ -22,8 +22,8 @@ export async function addToHistory(
   );
 }
 
-export async function getHistory(pool: Pool, uuid: string): Promise<HistoryItem[]> {
-  const res = await pool.query<{
+export async function getHistory(db: Db, uuid: string): Promise<HistoryItem[]> {
+  const res = await db.query<{
     report_id: string;
     url: string;
     created_at: number;
@@ -47,8 +47,8 @@ export async function getHistory(pool: Pool, uuid: string): Promise<HistoryItem[
   });
 }
 
-export async function ownsReport(pool: Pool, uuid: string, reportId: string): Promise<boolean> {
-  const res = await pool.query(
+export async function ownsReport(db: Db, uuid: string, reportId: string): Promise<boolean> {
+  const res = await db.query(
     'SELECT 1 FROM history WHERE uuid = $1 AND report_id = $2 LIMIT 1',
     [uuid, reportId],
   );
