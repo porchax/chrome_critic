@@ -10,19 +10,29 @@ export type UserRow = {
 };
 
 export async function getOrCreateUser(pool: Pool, uuid: string, now: Date): Promise<UserRow> {
-  const res = await pool.query<UserRow>(
+  const existing = await pool.query<UserRow>(
     'SELECT uuid, created_at, quota_used, quota_reset_at FROM users WHERE uuid = $1',
     [uuid],
   );
-  if (res.rows[0]) return res.rows[0];
+  if (existing.rows[0]) return existing.rows[0];
 
   const createdAt = now.getTime();
   const resetAt = nextWednesday10amMsk(now).getTime();
-  await pool.query(
-    'INSERT INTO users (uuid, created_at, quota_used, quota_reset_at) VALUES ($1, $2, 0, $3)',
+  // ON CONFLICT DO NOTHING makes concurrent first-access races safe; on conflict we re-SELECT.
+  const inserted = await pool.query<UserRow>(
+    `INSERT INTO users (uuid, created_at, quota_used, quota_reset_at)
+     VALUES ($1, $2, 0, $3)
+     ON CONFLICT (uuid) DO NOTHING
+     RETURNING uuid, created_at, quota_used, quota_reset_at`,
     [uuid, createdAt, resetAt],
   );
-  return { uuid, created_at: createdAt, quota_used: 0, quota_reset_at: resetAt };
+  if (inserted.rows[0]) return inserted.rows[0];
+
+  const after = await pool.query<UserRow>(
+    'SELECT uuid, created_at, quota_used, quota_reset_at FROM users WHERE uuid = $1',
+    [uuid],
+  );
+  return after.rows[0]!;
 }
 
 export function isExhausted(user: UserRow): boolean {
