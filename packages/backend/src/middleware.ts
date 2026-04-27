@@ -19,14 +19,10 @@ export function withCors() {
 }
 
 export function sharedSecret() {
-  return createMiddleware<{ Bindings: { EXTENSION_SHARED_SECRET: string } }>(
-    async (c, next) => {
-      const expected = c.env.EXTENSION_SHARED_SECRET;
-      const got = c.req.header('X-Critic-Token');
-      if (!expected || got !== expected) {
-        return c.json({ error: 'unauthorized' }, 401);
-      }
-      await next();
-    },
-  );
+  return createMiddleware(async (c, next) => {
+    const expected = process.env.EXTENSION_SHARED_SECRET;
+    const got = c.req.header('X-Critic-Token');
+    if (!expected || got !== expected) return c.json({ error: 'unauthorized' }, 401);
+    await next();
+  });
 }
