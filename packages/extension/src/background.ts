@@ -1,5 +1,6 @@
-async function openPanelWindow(tabId: number): Promise<void> {
-  const url = chrome.runtime.getURL('src/sidepanel/index.html') + `?tabId=${tabId}`;
+export async function handleIconClick(tab: chrome.tabs.Tab): Promise<void> {
+  if (!tab.id) return;
+  const url = `${chrome.runtime.getURL('src/sidepanel/index.html')}?tabId=${tab.id}`;
   await chrome.windows.create({
     url,
     type: 'popup',
@@ -7,20 +8,6 @@ async function openPanelWindow(tabId: number): Promise<void> {
     height: 720,
     focused: true,
   });
-}
-
-export async function handleIconClick(tab: chrome.tabs.Tab): Promise<void> {
-  if (!tab.id) return;
-  if (chrome.sidePanel?.open) {
-    try {
-      await chrome.sidePanel.open({ tabId: tab.id });
-      chrome.runtime.sendMessage({ type: 'analyze-tab', tabId: tab.id });
-      return;
-    } catch {
-      // fall through to window fallback
-    }
-  }
-  await openPanelWindow(tab.id);
 }
 
 if (typeof chrome !== 'undefined' && chrome.action?.onClicked) {

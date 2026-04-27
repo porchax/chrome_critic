@@ -4,9 +4,8 @@ import { handleIconClick } from './background';
 describe('handleIconClick', () => {
   beforeEach(() => {
     (globalThis as unknown as { chrome: unknown }).chrome = {
-      sidePanel: { open: vi.fn().mockResolvedValue(undefined) },
-      scripting: { executeScript: vi.fn().mockResolvedValue([]) },
-      runtime: { sendMessage: vi.fn() },
+      windows: { create: vi.fn().mockResolvedValue({ id: 1 }) },
+      runtime: { getURL: (p: string) => `chrome-extension://abc/${p}` },
       storage: {
         sync: {
           get: vi.fn().mockResolvedValue({}),
@@ -16,16 +15,15 @@ describe('handleIconClick', () => {
     };
   });
 
-  it('opens side panel and broadcasts analyze-tab', async () => {
+  it('opens popup window with tabId in url', async () => {
     await handleIconClick({ id: 42, url: 'https://x/a' } as chrome.tabs.Tab);
-    expect((chrome.sidePanel.open as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toEqual({
-      tabId: 42,
-    });
-    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: 'analyze-tab', tabId: 42 });
+    const call = (chrome.windows.create as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(call.url).toContain('src/sidepanel/index.html?tabId=42');
+    expect(call.type).toBe('popup');
   });
 
   it('ignores tabs without id', async () => {
     await handleIconClick({} as chrome.tabs.Tab);
-    expect(chrome.sidePanel.open).not.toHaveBeenCalled();
+    expect(chrome.windows.create).not.toHaveBeenCalled();
   });
 });
