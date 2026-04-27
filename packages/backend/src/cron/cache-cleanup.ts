@@ -1,7 +1,6 @@
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+import type { Pool } from 'pg';
 
-export async function cleanupExpiredCache(db: D1Database, now: Date): Promise<number> {
-  const cutoff = now.getTime() - ONE_DAY_MS;
-  const result = await db.prepare('DELETE FROM reports WHERE expires_at < ?').bind(cutoff).run();
-  return result.meta?.changes ?? 0;
+export async function cleanupExpiredCache(pool: Pool, now: Date): Promise<number> {
+  const res = await pool.query('DELETE FROM reports WHERE expires_at < $1', [now.getTime()]);
+  return res.rowCount ?? 0;
 }

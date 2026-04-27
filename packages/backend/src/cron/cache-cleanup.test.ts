@@ -1,31 +1,48 @@
-import { env } from 'cloudflare:test';
-import { beforeEach, describe, expect, it } from 'vitest';
-import migration from '../db/migrations/0001_initial.sql?raw';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { newDb } from 'pg-mem';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { Pool } from 'pg';
 import { cleanupExpiredCache } from './cache-cleanup';
 
-beforeEach(async () => {
-  await env.DB.exec(migration.replace(/\n/g, ' '));
-  await env.DB.exec('DELETE FROM reports');
-});
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const migration = readFileSync(resolve(__dirname, '../db/migrations/0001_initial.sql'), 'utf8');
 
 describe('cleanupExpiredCache', () => {
-  it('deletes reports with expires_at < now - 1 day', async () => {
+  let pool: Pool;
+
+  beforeAll(async () => {
+    const { Pool: PgPool } = newDb().adapters.createPg();
+    pool = new PgPool() as unknown as Pool;
+    await pool.query(migration);
+  });
+
+  beforeEach(async () => {
+    await pool.query('DELETE FROM reports');
+  });
+
+  it('removes expired reports', async () => {
     const now = new Date('2026-05-01T00:00:00Z');
-    await env.DB.prepare(
-      'INSERT INTO reports (id, url, content_hash, report_json, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-    )
-      .bind('old', 'u', 'h', '{}', 0, new Date('2026-04-25T00:00:00Z').getTime())
-      .run();
-    await env.DB.prepare(
-      'INSERT INTO reports (id, url, content_hash, report_json, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
-    )
-      .bind('fresh', 'u', 'h2', '{}', 0, new Date('2026-05-08T00:00:00Z').getTime())
-      .run();
+    await pool.query(
+      'INSERT INTO reports (id, url, content_hash, report_json, created_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)',
+      ['exp-1', 'https://x', 'h1', '{}', now.getTime() - 2000, now.getTime() - 1000],
+    );
+    const n = await cleanupExpiredCache(pool, now);
+    expect(n).toBe(1);
+    const { rows } = await pool.query('SELECT id FROM reports');
+    expect(rows).toHaveLength(0);
+  });
 
-    const removed = await cleanupExpiredCache(env.DB, now);
-    expect(removed).toBe(1);
-
-    const left = await env.DB.prepare('SELECT id FROM reports').all();
-    expect(left.results.map((r: any) => r.id)).toEqual(['fresh']);
+  it('keeps non-expired reports', async () => {
+    const now = new Date('2026-05-01T00:00:00Z');
+    await pool.query(
+      'INSERT INTO reports (id, url, content_hash, report_json, created_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6)',
+      ['live-1', 'https://x', 'h2', '{}', now.getTime(), now.getTime() + 1000],
+    );
+    const n = await cleanupExpiredCache(pool, now);
+    expect(n).toBe(0);
+    const { rows } = await pool.query('SELECT id FROM reports');
+    expect(rows).toHaveLength(1);
   });
 });

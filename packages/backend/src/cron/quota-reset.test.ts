@@ -1,44 +1,49 @@
-import { env } from 'cloudflare:test';
-import { beforeEach, describe, expect, it } from 'vitest';
-import migration from '../db/migrations/0001_initial.sql?raw';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { newDb } from 'pg-mem';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { Pool } from 'pg';
 import { resetExpiredQuotas } from './quota-reset';
 
-beforeEach(async () => {
-  await env.DB.exec(migration.replace(/\n/g, ' '));
-  await env.DB.exec('DELETE FROM users');
-});
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const migration = readFileSync(resolve(__dirname, '../db/migrations/0001_initial.sql'), 'utf8');
 
 describe('resetExpiredQuotas', () => {
-  it('resets users whose quota_reset_at <= now', async () => {
-    const now = new Date('2026-04-29T07:01:00Z'); // Wed 10:01 MSK
-    // user1: reset_at in past
-    await env.DB.prepare(
-      'INSERT INTO users (uuid, created_at, quota_used, quota_reset_at) VALUES (?, ?, ?, ?)',
-    )
-      .bind('u1', 0, 5, new Date('2026-04-29T07:00:00Z').getTime())
-      .run();
-    // user2: reset_at in future
-    await env.DB.prepare(
-      'INSERT INTO users (uuid, created_at, quota_used, quota_reset_at) VALUES (?, ?, ?, ?)',
-    )
-      .bind('u2', 0, 7, new Date('2026-05-06T07:00:00Z').getTime())
-      .run();
+  let pool: Pool;
 
-    await resetExpiredQuotas(env.DB, now);
+  beforeAll(async () => {
+    const { Pool: PgPool } = newDb().adapters.createPg();
+    pool = new PgPool() as unknown as Pool;
+    await pool.query(migration);
+  });
 
-    const u1 = await env.DB.prepare(
-      'SELECT quota_used, quota_reset_at FROM users WHERE uuid = ?',
-    )
-      .bind('u1')
-      .first<{ quota_used: number; quota_reset_at: number }>();
-    expect(u1?.quota_used).toBe(0);
-    expect(u1?.quota_reset_at).toBe(new Date('2026-05-06T07:00:00Z').getTime());
+  beforeEach(async () => {
+    await pool.query('DELETE FROM users');
+  });
 
-    const u2 = await env.DB.prepare(
-      'SELECT quota_used FROM users WHERE uuid = ?',
-    )
-      .bind('u2')
-      .first<{ quota_used: number }>();
-    expect(u2?.quota_used).toBe(7);
+  it('resets users with expired quota_reset_at', async () => {
+    const now = new Date('2026-04-30T10:00:00Z');
+    await pool.query(
+      'INSERT INTO users (uuid, created_at, quota_used, quota_reset_at) VALUES ($1, $2, 5, $3)',
+      ['u1', now.getTime(), now.getTime() - 1000],
+    );
+    const n = await resetExpiredQuotas(pool, now);
+    expect(n).toBe(1);
+    const { rows } = await pool.query<{ quota_used: number }>(
+      'SELECT quota_used FROM users WHERE uuid = $1',
+      ['u1'],
+    );
+    expect(rows[0]?.quota_used).toBe(0);
+  });
+
+  it('does not reset users with future quota_reset_at', async () => {
+    const now = new Date('2026-04-30T10:00:00Z');
+    await pool.query(
+      'INSERT INTO users (uuid, created_at, quota_used, quota_reset_at) VALUES ($1, $2, 5, $3)',
+      ['u2', now.getTime(), now.getTime() + 1000],
+    );
+    const n = await resetExpiredQuotas(pool, now);
+    expect(n).toBe(0);
   });
 });
