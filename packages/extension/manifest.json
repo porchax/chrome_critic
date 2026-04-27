@@ -7,6 +7,13 @@
   "action": { "default_title": "Разобрать статью через Критикус" },
   "side_panel": { "default_path": "src/sidepanel/index.html" },
   "background": { "service_worker": "src/background.ts", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content-script.ts"],
+      "run_at": "document_idle"
+    }
+  ],
   "permissions": ["activeTab", "scripting", "sidePanel", "storage"],
   "host_permissions": ["<all_urls>"],
   "icons": {
