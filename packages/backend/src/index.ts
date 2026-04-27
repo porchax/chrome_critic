@@ -1,26 +1,23 @@
+import { serve } from '@hono/node-server';
+import cron from 'node-cron';
 import { createApp } from './app';
 import { cleanupExpiredCache } from './cron/cache-cleanup';
 import { resetExpiredQuotas } from './cron/quota-reset';
+import { pool } from './db/client';
 
 const app = createApp();
+const port = Number(process.env.PORT ?? 3000);
 
-type Env = {
-  DB: D1Database;
-  KV: KVNamespace;
-  OPENROUTER_API_KEY: string;
-  EXTENSION_SHARED_SECRET: string;
-};
+serve({ fetch: app.fetch, port }, () => {
+  console.log(JSON.stringify({ event: 'server_start', port }));
+});
 
-export default {
-  fetch: app.fetch,
-  async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
-    const now = new Date();
-    if (event.cron === '0 7 * * 3') {
-      const n = await resetExpiredQuotas(env.DB, now);
-      console.log(JSON.stringify({ event: 'cron_quota_reset', users_reset: n }));
-    } else if (event.cron === '0 3 * * *') {
-      const n = await cleanupExpiredCache(env.DB, now);
-      console.log(JSON.stringify({ event: 'cron_cache_cleanup', removed: n }));
-    }
-  },
-};
+cron.schedule('0 7 * * 3', async () => {
+  const n = await resetExpiredQuotas(pool, new Date());
+  console.log(JSON.stringify({ event: 'cron_quota_reset', users_reset: n }));
+});
+
+cron.schedule('0 3 * * *', async () => {
+  const n = await cleanupExpiredCache(pool, new Date());
+  console.log(JSON.stringify({ event: 'cron_cache_cleanup', removed: n }));
+});
