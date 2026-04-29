@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type ExtractorOutput, type Report, ReportSchema } from '@criticus/shared';
 import { callOpenRouter } from '../services/openrouter';
+import { parseJsonResponse } from './parse-json';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const promptText = readFileSync(resolve(__dirname, 'prompts/critic.md'), 'utf8');
@@ -42,8 +43,9 @@ async function callOnce(args: CriticArgs, repairHint?: string): Promise<Report> 
     userPrompt: buildUserPrompt(args),
     jsonMode: true,
     temperature: 0.7,
+    maxTokens: 8000,
   });
-  const parsed = JSON.parse(result.content);
+  const parsed = parseJsonResponse(result.content);
   return ReportSchema.parse(parsed) as Report;
 }
 

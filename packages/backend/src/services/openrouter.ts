@@ -5,6 +5,7 @@ export type OpenRouterCall = {
   userPrompt: string;
   jsonMode?: boolean;
   temperature?: number;
+  maxTokens?: number;
 };
 
 export type OpenRouterResult = {
@@ -20,6 +21,7 @@ export async function callOpenRouter(args: OpenRouterCall): Promise<OpenRouterRe
       { role: 'user', content: args.userPrompt },
     ],
     temperature: args.temperature ?? 0.4,
+    ...(args.maxTokens !== undefined ? { max_tokens: args.maxTokens } : {}),
     ...(args.jsonMode ? { response_format: { type: 'json_object' as const } } : {}),
   };
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {

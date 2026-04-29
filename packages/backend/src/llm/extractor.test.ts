@@ -23,6 +23,42 @@ describe('runExtractor', () => {
     spy.mockRestore();
   });
 
+  it('parses JSON wrapped in markdown ```json fence', async () => {
+    const payload = JSON.stringify({
+      claims: [{ quote: 'A', paraphrase: 'B' }],
+      rhetoric_notes: [],
+      language_notes: [],
+      source_hints: '',
+    });
+    const spy = vi.spyOn(openrouter, 'callOpenRouter').mockResolvedValue({
+      content: `\`\`\`json\n${payload}\n\`\`\``,
+      model: 'google/gemini-2.0-flash-001',
+    });
+    const result = await runExtractor({
+      apiKey: 'k',
+      title: 't',
+      domain: 'd',
+      text: 'long text',
+    });
+    expect(result.claims).toHaveLength(1);
+    spy.mockRestore();
+  });
+
+  it('passes a maxTokens budget to openrouter', async () => {
+    const spy = vi.spyOn(openrouter, 'callOpenRouter').mockResolvedValue({
+      content: JSON.stringify({
+        claims: [{ quote: 'q', paraphrase: 'p' }],
+        rhetoric_notes: [],
+        language_notes: [],
+        source_hints: '',
+      }),
+      model: 'google/gemini-2.0-flash-001',
+    });
+    await runExtractor({ apiKey: 'k', title: 't', domain: 'd', text: 'x' });
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ maxTokens: expect.any(Number) }));
+    spy.mockRestore();
+  });
+
   it('throws on invalid JSON', async () => {
     const spy = vi
       .spyOn(openrouter, 'callOpenRouter')

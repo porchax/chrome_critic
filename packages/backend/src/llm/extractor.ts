@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type ExtractorOutput, ExtractorOutputSchema } from '@criticus/shared';
 import { callOpenRouter } from '../services/openrouter';
+import { parseJsonResponse } from './parse-json';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const promptText = readFileSync(resolve(__dirname, 'prompts/extractor.md'), 'utf8');
@@ -29,8 +30,9 @@ async function tryModel(model: string, args: ExtractorArgs): Promise<ExtractorOu
     userPrompt: buildUserPrompt(args),
     jsonMode: true,
     temperature: 0.2,
+    maxTokens: 4000,
   });
-  const parsed = JSON.parse(result.content);
+  const parsed = parseJsonResponse(result.content);
   return ExtractorOutputSchema.parse(parsed);
 }
 

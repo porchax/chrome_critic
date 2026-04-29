@@ -40,6 +40,52 @@ describe('runCritic', () => {
     spy.mockRestore();
   });
 
+  it('parses JSON wrapped in markdown ```json fence on first try (no retry)', async () => {
+    const wrapped = `\`\`\`json\n${JSON.stringify(validReport)}\n\`\`\``;
+    const spy = vi.spyOn(openrouter, 'callOpenRouter').mockResolvedValue({
+      content: wrapped,
+      model: 'anthropic/claude-sonnet-4:online',
+    });
+    const r = await runCritic({
+      apiKey: 'k',
+      url: 'u',
+      title: 't',
+      domain: 'd',
+      text: 'x',
+      extractor: {
+        claims: [{ quote: 'q', paraphrase: 'p' }],
+        rhetoric_notes: [],
+        language_notes: [],
+        source_hints: '',
+      },
+    });
+    expect(r.verdict).toBe('жёсткий вердикт');
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it('passes a maxTokens budget to openrouter', async () => {
+    const spy = vi.spyOn(openrouter, 'callOpenRouter').mockResolvedValue({
+      content: JSON.stringify(validReport),
+      model: 'anthropic/claude-sonnet-4:online',
+    });
+    await runCritic({
+      apiKey: 'k',
+      url: 'u',
+      title: 't',
+      domain: 'd',
+      text: 'x',
+      extractor: {
+        claims: [{ quote: 'q', paraphrase: 'p' }],
+        rhetoric_notes: [],
+        language_notes: [],
+        source_hints: '',
+      },
+    });
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ maxTokens: expect.any(Number) }));
+    spy.mockRestore();
+  });
+
   it('retries once on invalid JSON, succeeds on retry', async () => {
     const spy = vi
       .spyOn(openrouter, 'callOpenRouter')
